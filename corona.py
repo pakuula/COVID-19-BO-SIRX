@@ -208,11 +208,11 @@ def mk_sir_so_r0_model(model):
 @jit
 def sir_co_rhs(x, t, params):
     S, I, R, C, O = x
-    a, b, a_c, i_r, c_r, k = params
+    a, b, a_c, i_r, c_r, c_i, k = params
     dsdt = -a * (I + a_c * C) * S
-    didt = a * (I + a_c * C) * S - b * I
+    didt = a * (I + a_c * C) * S - b * I + c_i * C
     dRdt = b * i_r * I + c_r * C
-    dCdt = b * (1 - i_r) * I - c_r * C
+    dCdt = b * (1 - i_r) * I - (c_r + c_i)* C
     dxdt = k * (I + C)
     return np.array([dsdt, didt, dRdt, dCdt, dxdt])
 
@@ -220,30 +220,28 @@ def sir_co_rhs(x, t, params):
 def mk_sir_co_model(model):
     limit = model.cases()[0] / REVEAL_ESTIMATE
     return ComputationalModel(name='sir_co', rhs_fn=sir_co_rhs,
-      iv_fn=(lambda v0: (
-     1 - v0[0] - v0[1] - v0[2], v0[0], v0[1], v0[2], model.cases()[0])),
-      param_count=6,
-      bounds=(
-     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
-     np.array([5.0, 4.0, 1.0, 1.0, 3.0, 0.05, limit, limit, limit])),
+      iv_fn=(lambda v0: (1 - v0[0] - v0[1] - v0[2], v0[0], v0[1], v0[2], model.cases()[0])),
+      param_count=7,
+      bounds=(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
+              np.array([5.0, 4.0, 1.0, 1.0, 3.0, 3.0, 0.05, limit, limit, limit])),
       solution_spec=[
      'S', 'I', 'R', 'C', 'O'],
       solution_columns=[
      'Succeptible', 'Infectious', 'Recovered', 'Carrier', 'Observed'],
       report_columns=('alpha', 'beta', 'carrier efficiency', 'infectious to recovered',
-                      'carrier recovery', 'reveal efficiency', 'Initial infected',
-                      'Initial carrier', 'Initial recovered'),
+                      'carrier recovery', 'carrier to infectious', 'reveal efficiency', 
+                      'Initial infected', 'Initial carrier', 'Initial recovered'),
       population_columns=('Initial infected', 'Initial carrier', 'Initial recovered'))
 
 
 @jit
 def sir_sco_rhs(x, t, params):
     S, I, R, C, X = x
-    a, b, a_c, i_r, c_r, r_s, k = params
+    a, b, a_c, i_r, c_r, c_i, r_s, k = params
     dsdt = -a * (I + a_c * C) * S + r_s * R
-    didt = a * (I + a_c * C) * S - b * I
+    didt = a * (I + a_c * C) * S - b * I + c_i*C
     dRdt = b * i_r * I + c_r * C - r_s * R
-    dCdt = b * (1 - i_r) * I - c_r * C
+    dCdt = b * (1 - i_r) * I - (c_r +c_i)*C
     dxdt = k * (I + C)
     return np.array([dsdt, didt, dRdt, dCdt, dxdt])
 
@@ -251,18 +249,16 @@ def sir_sco_rhs(x, t, params):
 def mk_sir_sco_model(model):
     limit = model.cases()[0] / REVEAL_ESTIMATE
     return ComputationalModel(name='sir_sco', rhs_fn=sir_sco_rhs,
-      iv_fn=(lambda v0: (
-     1 - v0[0] - v0[1] - v0[2], v0[0], v0[1], v0[2], model.cases()[0])),
-      param_count=7,
-      bounds=(
-     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
-     np.array([5.0, 4.0, 1.0, 1.0, 3.0, 3.0, 0.05, limit, limit, limit])),
+      iv_fn=(lambda v0: (1 - v0[0] - v0[1] - v0[2], v0[0], v0[1], v0[2], model.cases()[0])),
+      param_count=8,
+      bounds=(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
+              np.array([5.0, 4.0, 1.0, 1.0, 3.0, 3.0, 3.0, 0.05, limit, limit, limit])),
       solution_spec=[
      'S', 'I', 'R', 'C', 'O'],
       solution_columns=[
      'Succeptible', 'Infectious', 'Recovered', 'Carrier', 'Observed'],
       report_columns=('alpha', 'beta', 'carrier efficiency', 'infectious to recovered',
-                      'carrier recovery', 'recovered to susceptible', 'reveal efficiency',
+                      'carrier recovery', 'carrier to infectious', 'recovered to susceptible', 'reveal efficiency',
                       'Initial infected', 'Initial carrier', 'Initial recovered'),
       population_columns=('Initial infected', 'Initial carrier', 'Initial recovered'))
 
@@ -270,11 +266,11 @@ def mk_sir_sco_model(model):
 @jit
 def sir_sco_kc_rhs(x, t, params):
     S, I, R, C, X = x
-    a, b, a_c, i_r, c_r, r_s, k_i, k_c = params
+    a, b, a_c, i_r, c_r, c_i, r_s, k_i, k_c = params
     dsdt = -a * (I + a_c * C) * S + r_s * R
-    didt = a * (I + a_c * C) * S - b * I
+    didt = a * (I + a_c * C) * S - b * I + c_i*C
     dRdt = b * i_r * I + c_r * C - r_s * R
-    dCdt = b * (1 - i_r) * I - c_r * C
+    dCdt = b * (1 - i_r) * I - (c_r + c_i)*C
     dxdt = k_i * I + k_c * C
     return np.array([dsdt, didt, dRdt, dCdt, dxdt])
 
@@ -284,16 +280,15 @@ def mk_sir_sco_kc_model(model):
     return ComputationalModel(name='sir_sco_kc', rhs_fn=sir_sco_kc_rhs,
       iv_fn=(lambda v0: (
      1 - v0[0] - v0[1] - v0[2], v0[0], v0[1], v0[2], model.cases()[0])),
-      param_count=8,
-      bounds=(
-     np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
-     np.array([5.0, 4.0, 1.0, 1.0, 3.0, 3.0, 0.05, 0.05, limit, limit, limit])),
+      param_count=9,
+      bounds=(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, model.cases()[0], 0.0, 0.0]),
+              np.array([5.0, 4.0, 1.0, 1.0, 3.0, 3.0, 3.0, 0.05, 0.05, limit, limit, limit])),
       solution_spec=[
      'S', 'I', 'R', 'C', 'O'],
       solution_columns=[
      'Succeptible', 'Infectious', 'Recovered', 'Carrier', 'Observed'],
       report_columns=('alpha', 'beta', 'carrier efficiency', 'infectious to recovered',
-                      'carrier recovery', 'recovered to susceptible', 'Infectious reveal efficiency',
+                      'carrier recovery', 'carrier to infectious', 'recovered to susceptible', 'Infectious reveal efficiency',
                       'Carrier reveal efficiency', 'Initial infected', 'Initial carrier',
                       'Initial recovered'),
       population_columns=('Initial infected', 'Initial carrier', 'Initial recovered'))
@@ -304,7 +299,7 @@ def seir_o_rhs(x, t, params):
     S, E, I, R, O = x
     a, b, ei, er, k = params
     dsdt = -a * S * I
-    dedt = a * S * I - ei * E - er * E
+    dedt = a * S * I - (ei + er) * E
     didt = ei * E - b * I
     dOdt = k * I
     dRdt = er * E + b * I
@@ -397,17 +392,16 @@ class CovidModel:
         self.country = country
         if country in covid_db_names:
             country = covid_db_names[country]
+        self.data = CovidData()[country]
+        if population is None:
+            if population_db_country_name is None:
+                if self.country in population_db_names:
+                    population_db_country_name = population_db_names[self.country]
+                else:
+                    population_db_country_name = self.country
+            self.population = PopulationData()[population_db_country_name]
         else:
-            self.data = CovidData()[country]
-            if population is None:
-                if population_db_country_name is None:
-                    if self.country in population_db_names:
-                        population_db_country_name = population_db_names[self.country]
-                    else:
-                        population_db_country_name = self.country
-                self.population = PopulationData()[population_db_country_name]
-            else:
-                self.population = population
+            self.population = population
         self.normed_data = self.data / self.population
         self.true_cases = self.normed_data[0]
         self.set_init_cases(INIT_CASES)
